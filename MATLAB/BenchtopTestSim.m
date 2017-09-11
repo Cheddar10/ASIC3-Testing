@@ -6,10 +6,13 @@
 
 %% Requires:
 % trial and run
-    tr = 9;
+    tr = 8;
     rn = 1;
-% IF guess
-    IF = 31.6e6;
+% IF guess, expects  ~0.5 - 1MHz accuracy
+    IF = 27.5e6;
+% Simulation duration (full dataset or est. # of bits)
+    runFull = 0; %bool
+    runBits = 1e4;
 
 %% ARW 9/8/17 rev: add path management, assumes working above three folders
 % unzipped from GitHub
@@ -22,14 +25,7 @@ addpath('Datasets');
 % Open simulink system
 open_system('BenchtopSkinpatch_SingleTone');
 
-%% -- EDIT THIS SECTION --
-% Read in data and produce two data arrays Iin, Qin
-% These arrays should represent voltage levels directly, eg. not int16
-                % tr = 'T9.1';
-                % fp = strcat('Datasets\trial9\',tr,'\');
-                % fn = 'IQ.dat';
-                % load(strcat(fp,tr,'.parameters.mat'));
-
+%% File Prep
 % ARW 9/8/17: generate filenames and paths from trial and run numbers
     % set file paths
         % fp is metadata file
@@ -50,32 +46,30 @@ open_system('BenchtopSkinpatch_SingleTone');
 m = memmapfile(fn, 'Format', 'int16');
 Iin = m.Data(1:2:end); Iin = double(Iin)*2^-15*(s.rangeADC);
 Qin = m.Data(2:2:end); Qin = double(Qin)*2^-15*(s.rangeADC);
-% -----------------------
 
-%% -- EDIT THIS SECTION --
-% Sampling Freq, Tx Freq, and IF estimate (requires ~.5-1MHz accuracy)
+%% Simulation Parameters
+% Sampling Freq and time vector
 Fs = s.fs*1e6;
-RF = s.LO*1e6;
-
-% -----------------------
-
-% a few more sim parameters
 Ts = 1/Fs;
-Fbit = IF/3;
-Tsym = 1/(Fbit);
-Fcutoff = Fbit;
 time = (0:Ts:Ts*(length(Iin) - 1))';
 
-% -- EDIT THIS SECTION --
-%choose to run for ~nbits duration or full capture length
-nbits = 1e4;
-sim_time = nbits/Fbit; % ARW 9/8/17: increment is samples for slx run, not bits
-%sim_time = time(end);
-% -----------------------
+%bit/symbol rate estimate
+Fbit = IF/3;
+Tsym = 1/(Fbit);
+
+%LP filter cutoff
+Fcutoff = Fbit;
+
+%Sim duration either full duration or fixed number of bits (approx.)
+if(runFull)
+    sim_time = time(end);
+else
+    sim_time = runBits/Fbit; % ARW 9/8/17: increment is samples for slx run, not bits
+end
 
 %% downconvert from IF
-cc = cos(2*pi*IF*time);
-ss = sin(2*pi*IF*time);
+cc = cos(-2*pi*IF*time);
+ss = sin(-2*pi*IF*time);
 I = Iin.*cc - Qin.*ss;
 Q = Iin.*ss + Qin.*cc;
 
@@ -91,22 +85,19 @@ h1 = dsp.SpectrumAnalyzer(1);
     h1.FrequencySpan = 'Span and center frequency';
     h1.Span = 100e6;
     h1.CenterFrequency = 0;
-    h1.YLimits = [-90 -60];
+    h1.YLimits = [-100 -60];
     h1.ChannelNames = {sprintf('IQ DDC at %1.0f MHz IF',1e-6*IF)};
     h1.ShowLegend = true;
     h1.Title = sprintf('IQ DDC spectrum at 50 Ohm for Trial %d, Run %d, LO %1.0f MHz',tr,rn,s.LO);
 
 %%
-iq = I.data+j.*Q.data;
+iq = I.data + 1i*Q.data;
 step(h1, iq)
 
 %% filter
-uI = mean(I);
-uQ = mean(Q);
-interval = [0 Fcutoff];
-I = idealfilter(I-uI,interval,'pass');
-Q = idealfilter(Q-uQ,interval,'pass');
-iqFilt = I.data + j.*Q.data;
+I = idealfilter(I-mean(I),[0 Fcutoff],'pass');
+Q = idealfilter(Q-mean(Q),[0 Fcutoff],'pass');
+iqFilt = I.data + 1i*Q.data;
 
 %%
 h2 = dsp.SpectrumAnalyzer(1);
@@ -116,7 +107,7 @@ h2 = dsp.SpectrumAnalyzer(1);
     h2.FrequencySpan = 'Span and center frequency';
     h2.Span = 30e6;
     h2.CenterFrequency = 0;
-    h2.YLimits = [-90 -60];
+    h2.YLimits = [-100 -60];
     h2.ChannelNames = {sprintf('IQ DDC at %1.0f MHz IF',1e-6*IF)};
     h2.ShowLegend = true;
     h2.Title = sprintf('Filtered IQ DDC spectrum at 50 Ohm for Trial %d, Run %d, LO %1.0f MHz',tr,rn,s.LO);
@@ -134,7 +125,7 @@ bits = bits(:);
 %31 bit PN sequence
 bitseq = [1 1 0 0 0 1 1 1 1 1 0 0 1 1 0 1 0 0 1 0 0 0 0 1 0 1 0 1 1 1 0];
 
-%compute error for all phases of bit sequence
+%compute error for all 31 phases of bit sequence
 for i = 1:31
     seq = repmat([bitseq(i:end) bitseq(1:i-1)]',floor(length(bits)/31),1); 
     e(i) = sum(bits(1:length(seq)) == seq); 
@@ -144,7 +135,7 @@ end
 [vmin, imin] = min(e);
 [vmax, imax] = max(e);
 
-%find best match
+%choose best overall match
 if(vmin < (length(seq) - vmax))
     phase = imin;
     errors = biterrors(bits, bitseq', phase);

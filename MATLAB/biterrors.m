@@ -1,5 +1,5 @@
 function errors = biterrors(bits, bitseq, offset)
-%computes errors between bits and target sequency given a phase offset
+%computes errors between bits and target sequence given a phase offset
 
 nseq = length(bitseq);
 dubseq = repmat(bitseq,2,1);
