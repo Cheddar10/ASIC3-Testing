@@ -9,10 +9,10 @@
     tr = 8;
     rn = 1;
 % IF guess, expects  ~0.5 - 1MHz accuracy
-    IF = 27.5e6;
+    IF = 28e6;
 % Simulation duration (full dataset or est. # of bits)
     runFull = 0; %bool
-    runBits = 1e4;
+    runBits = 2000;
 
 %% ARW 9/8/17 rev: add path management, assumes working above three folders
 % unzipped from GitHub
@@ -46,6 +46,7 @@ open_system('BenchtopSkinpatch_SingleTone');
 m = memmapfile(fn, 'Format', 'int16');
 Iin = m.Data(1:2:end); Iin = double(Iin)*2^-15*(s.rangeADC);
 Qin = m.Data(2:2:end); Qin = double(Qin)*2^-15*(s.rangeADC);
+
 
 %% Simulation Parameters
 % Sampling Freq and time vector
@@ -83,7 +84,7 @@ h1 = dsp.SpectrumAnalyzer(1);
     h1.SpectralAverages=50;
     h1.ReferenceLoad = 50;
     h1.FrequencySpan = 'Span and center frequency';
-    h1.Span = 100e6;
+    h1.Span = 125e6;
     h1.CenterFrequency = 0;
     h1.YLimits = [-100 -60];
     h1.ChannelNames = {sprintf('IQ DDC at %1.0f MHz IF',1e-6*IF)};
