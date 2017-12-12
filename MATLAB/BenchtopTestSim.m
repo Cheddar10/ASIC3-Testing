@@ -9,7 +9,7 @@
     tr = 8;
     rn = 1;
 % IF guess, expects  ~0.5 - 1MHz accuracy
-    IF = 28e6;
+    IF = 29e6;
 % Simulation duration (full dataset or est. # of bits)
     runFull = 0; %bool
     runBits = 2000;
@@ -47,12 +47,14 @@ m = memmapfile(fn, 'Format', 'int16');
 Iin = m.Data(1:2:end); Iin = double(Iin)*2^-15*(s.rangeADC);
 Qin = m.Data(2:2:end); Qin = double(Qin)*2^-15*(s.rangeADC);
 
-
 %% Simulation Parameters
 % Sampling Freq and time vector
 Fs = s.fs*1e6;
 Ts = 1/Fs;
 time = (0:Ts:Ts*(length(Iin) - 1))';
+
+%FFT length
+CFC_FFTlength = 1024;
 
 %bit/symbol rate estimate
 Fbit = IF/3;
@@ -68,15 +70,9 @@ else
     sim_time = runBits/Fbit; % ARW 9/8/17: increment is samples for slx run, not bits
 end
 
-%% downconvert from IF
-cc = cos(-2*pi*IF*time);
-ss = sin(-2*pi*IF*time);
-I = Iin.*cc - Qin.*ss;
-Q = Iin.*ss + Qin.*cc;
-
 %create timeseries
-I = timeseries(I,time);
-Q = timeseries(Q,time);
+I = timeseries(Iin,time);
+Q = timeseries(Qin,time);
 
 %% -- UNCOMMENT this to view data on spec. analyzer
 h1 = dsp.SpectrumAnalyzer(1);
@@ -96,10 +92,9 @@ iq = I.data + 1i*Q.data;
 step(h1, iq)
 
 %% filter
-I = idealfilter(I-mean(I),[0 Fcutoff],'pass');
-Q = idealfilter(Q-mean(Q),[0 Fcutoff],'pass');
+% I = idealfilter(I-mean(I),[0 Fcutoff],'pass');
+% Q = idealfilter(Q-mean(Q),[0 Fcutoff],'pass');
 iqFilt = I.data + 1i*Q.data;
-
 %%
 h2 = dsp.SpectrumAnalyzer(1);
     h2.SampleRate=Fs;
