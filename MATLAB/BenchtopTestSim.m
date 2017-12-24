@@ -6,13 +6,13 @@
 
 %% Requires:
 % trial and run
-    tr = 8;
-    rn = 1;
+    tr = 21;
+    rn = 4;
 % IF guess, expects  ~0.5 - 1MHz accuracy
     IF = 29e6;
 % Simulation duration (full dataset or est. # of bits)
     runFull = 0; %bool
-    runBits = 2000;
+    runBits = 4000;
 
 %% ARW 9/8/17 rev: add path management, assumes working above three folders
 % unzipped from GitHub
@@ -92,8 +92,8 @@ iq = I.data + 1i*Q.data;
 step(h1, iq)
 
 %% filter
-% I = idealfilter(I-mean(I),[0 Fcutoff],'pass');
-% Q = idealfilter(Q-mean(Q),[0 Fcutoff],'pass');
+ I = idealfilter(I-mean(I),[15e6 45e6],'pass');
+ Q = idealfilter(Q-mean(Q),[15e6 45e6],'pass');
 iqFilt = I.data + 1i*Q.data;
 %%
 h2 = dsp.SpectrumAnalyzer(1);
