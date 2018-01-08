@@ -6,10 +6,10 @@
 
 %% Requires:
 % trial and run
-    tr = 8;
-    rn = 1;
+    tr = 21;
+    rn = 4;
 % IF guess, expects  ~0.5 - 1MHz accuracy
-    IF = 29e6;
+    IF = 26e6;
 % Simulation duration (full dataset or est. # of bits)
     runFull = 0; %bool
     runBits = 2000;
@@ -54,7 +54,7 @@ Ts = 1/Fs;
 time = (0:Ts:Ts*(length(Iin) - 1))';
 
 %FFT length
-CFC_FFTlength = 1024;
+CFC_FFTlength = 512;
 
 %bit/symbol rate estimate
 Fbit = IF/3;
@@ -71,8 +71,10 @@ else
 end
 
 %create timeseries
-I = timeseries(Iin,time);
-Q = timeseries(Qin,time);
+cc = 1;%cos(-2*pi*time*IF);
+ss = 0;%sin(-2*pi*time*IF);
+I = timeseries(cc.*Iin - ss.*Qin,time);
+Q = timeseries(cc.*Qin + ss.*Iin,time);
 
 %% -- UNCOMMENT this to view data on spec. analyzer
 h1 = dsp.SpectrumAnalyzer(1);
@@ -92,24 +94,8 @@ iq = I.data + 1i*Q.data;
 step(h1, iq)
 
 %% filter
-% I = idealfilter(I-mean(I),[0 Fcutoff],'pass');
-% Q = idealfilter(Q-mean(Q),[0 Fcutoff],'pass');
-iqFilt = I.data + 1i*Q.data;
-%%
-h2 = dsp.SpectrumAnalyzer(1);
-    h2.SampleRate=Fs;
-    h2.SpectralAverages=50;
-    h2.ReferenceLoad = 50;
-    h2.FrequencySpan = 'Span and center frequency';
-    h2.Span = 30e6;
-    h2.CenterFrequency = 0;
-    h2.YLimits = [-100 -60];
-    h2.ChannelNames = {sprintf('IQ DDC at %1.0f MHz IF',1e-6*IF)};
-    h2.ShowLegend = true;
-    h2.Title = sprintf('Filtered IQ DDC spectrum at 50 Ohm for Trial %d, Run %d, LO %1.0f MHz',tr,rn,s.LO);
-
-%%
-step(h2,iqFilt)
+  I = idealfilter(I-mean(I),[15e6 45e6],'pass');
+  Q = idealfilter(Q-mean(Q),[15e6 45e6],'pass');
 
 %% Run the simulation
 sim('BenchtopSkinpatch_SingleTone');
