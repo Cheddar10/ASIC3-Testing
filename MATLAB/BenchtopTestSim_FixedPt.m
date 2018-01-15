@@ -10,7 +10,7 @@
     rn = 4;
 % Simulation duration (full dataset or est. # of bits)
     runFull = 0; %bool
-    runBits = 10000;
+    runBits = 3000;
 
 %% ARW 9/8/17 rev: add path management, assumes working above three folders
 % unzipped from GitHub
